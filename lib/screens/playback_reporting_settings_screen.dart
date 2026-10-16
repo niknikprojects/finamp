@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:finamp/components/finamp_app_bar_back_button.dart';
 import 'package:finamp/components/PlaybackReportingSettingsScreen/discord_rpc_icon_selector.dart';
 import 'package:finamp/components/PlaybackReportingSettingsScreen/enabled_discord_rpc.dart';
+import 'package:finamp/components/PlaybackReportingSettingsScreen/listenbrainz_settings.dart';
 import 'package:finamp/l10n/app_localizations.dart';
 import 'package:finamp/services/finamp_settings_helper.dart';
 import 'package:flutter/material.dart';
@@ -40,6 +41,8 @@ class _PlaybackReportingSettingsScreenState extends State<PlaybackReportingSetti
       body: ListView(
         padding: const EdgeInsets.only(bottom: 200.0),
         children: [
+          const ListenBrainzSettings(),
+          const Divider(),
           const EnablePlayonToggle(),
           const PeriodicPlaybackSessionUpdateFrequencyEditor(),
           const ReportQueueToServerToggle(),

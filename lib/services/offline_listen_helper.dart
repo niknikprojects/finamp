@@ -34,8 +34,11 @@ class OfflineListenLogHelper {
   /// Logs a listen to a file.
   ///
   /// This is used when the user is offline or submitting live playback events fails.
-  Future<void> logOfflineListen(MediaItem item, [DateTime? timestamp]) async {
+  /// [position] is the playback position when the track stopped.
+  Future<void> logOfflineListen(MediaItem item, {DateTime? timestamp, Duration? position}) async {
     final itemJson = item.extras!["itemJson"];
+    final providerIds = itemJson["ProviderIds"] as Map<String, dynamic>?;
+    final runTimeTicks = itemJson["RunTimeTicks"] as num?;
 
     final deviceInfo = await getDeviceInfo(deviceId: FinampSettingsHelper.finampSettings.deviceId);
 
@@ -46,8 +49,15 @@ class OfflineListenLogHelper {
       name: itemJson["Name"] as String,
       artist: itemJson["AlbumArtist"] as String?,
       album: itemJson["Album"] as String?,
-      trackMbid: itemJson["ProviderIds"]?["MusicBrainzTrack"] as String?,
+      trackMbid: providerIds?["MusicBrainzTrack"] as String?,
       deviceInfo: deviceInfo,
+      playedSeconds: position?.inSeconds,
+      durationSeconds: runTimeTicks == null ? item.duration?.inSeconds : runTimeTicks ~/ 10000000,
+      artists: (itemJson["Artists"] as List?)?.cast<String>(),
+      recordingMbid: providerIds?["MusicBrainzRecording"] as String?,
+      releaseMbid: providerIds?["MusicBrainzAlbum"] as String?,
+      releaseGroupMbid: providerIds?["MusicBrainzReleaseGroup"] as String?,
+      artistMbids: _splitMbids(providerIds?["MusicBrainzArtist"] as String?),
     );
 
     return _logOfflineListen(offlineListen);
@@ -71,6 +81,11 @@ class OfflineListenLogHelper {
       'artist': listen.artist,
       'album': listen.album,
       'track_mbid': listen.trackMbid,
+      'recording_mbid': listen.recordingMbid,
+      'release_mbid': listen.releaseMbid,
+      'artists': listen.artists,
+      'played_seconds': listen.playedSeconds,
+      'duration_seconds': listen.durationSeconds,
       'user_id': listen.userId,
       'device': {'name': listen.deviceInfo?.name, 'id': listen.deviceInfo?.id},
     };
@@ -82,6 +97,12 @@ class OfflineListenLogHelper {
     } catch (e) {
       _logger.warning("Failed to write listen to file: $content");
     }
+  }
+
+  /// Jellyfin joins multiple artist MBIDs with "/" or ";".
+  static List<String>? _splitMbids(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return value.split(RegExp(r"[/;]")).map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
   }
 
   /// Share the offline listens log file

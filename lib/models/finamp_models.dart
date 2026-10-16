@@ -2009,6 +2009,13 @@ class OfflineListen {
     this.album,
     this.trackMbid,
     this.deviceInfo,
+    this.playedSeconds,
+    this.durationSeconds,
+    this.artists,
+    this.recordingMbid,
+    this.releaseMbid,
+    this.releaseGroupMbid,
+    this.artistMbids,
   });
 
   /// The stop timestamp of the listen, measured in seconds since the epoch.
@@ -2036,6 +2043,30 @@ class OfflineListen {
 
   @HiveField(7)
   DeviceInfo? deviceInfo;
+
+  /// Playback position when the track stopped, used to decide whether the
+  /// listen counts for ListenBrainz. Null for listens logged before this was tracked.
+  @HiveField(8)
+  int? playedSeconds;
+
+  @HiveField(9)
+  int? durationSeconds;
+
+  /// Track artists (as opposed to [artist], which is the album artist).
+  @HiveField(10)
+  List<String>? artists;
+
+  @HiveField(11)
+  String? recordingMbid;
+
+  @HiveField(12)
+  String? releaseMbid;
+
+  @HiveField(13)
+  String? releaseGroupMbid;
+
+  @HiveField(14)
+  List<String>? artistMbids;
 }
 
 @HiveType(typeId: 50)

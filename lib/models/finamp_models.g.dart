@@ -1012,13 +1012,20 @@ class OfflineListenAdapter extends TypeAdapter<OfflineListen> {
       album: fields[5] as String?,
       trackMbid: fields[6] as String?,
       deviceInfo: fields[7] as DeviceInfo?,
+      playedSeconds: (fields[8] as num?)?.toInt(),
+      durationSeconds: (fields[9] as num?)?.toInt(),
+      artists: (fields[10] as List?)?.cast<String>(),
+      recordingMbid: fields[11] as String?,
+      releaseMbid: fields[12] as String?,
+      releaseGroupMbid: fields[13] as String?,
+      artistMbids: (fields[14] as List?)?.cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, OfflineListen obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.timestamp)
       ..writeByte(1)
@@ -1034,7 +1041,21 @@ class OfflineListenAdapter extends TypeAdapter<OfflineListen> {
       ..writeByte(6)
       ..write(obj.trackMbid)
       ..writeByte(7)
-      ..write(obj.deviceInfo);
+      ..write(obj.deviceInfo)
+      ..writeByte(8)
+      ..write(obj.playedSeconds)
+      ..writeByte(9)
+      ..write(obj.durationSeconds)
+      ..writeByte(10)
+      ..write(obj.artists)
+      ..writeByte(11)
+      ..write(obj.recordingMbid)
+      ..writeByte(12)
+      ..write(obj.releaseMbid)
+      ..writeByte(13)
+      ..write(obj.releaseGroupMbid)
+      ..writeByte(14)
+      ..write(obj.artistMbids);
   }
 
   @override

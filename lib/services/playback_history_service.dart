@@ -378,7 +378,12 @@ class PlaybackHistoryService {
 
     if (FinampSettingsHelper.finampSettings.isOffline) {
       if (shouldReportPreviousTrack) {
-        await _offlineListenLogHelper.logOfflineListen(previousItem.item);
+        final duration = previousItem.item.duration;
+        final position = previousState.position;
+        await _offlineListenLogHelper.logOfflineListen(
+          previousItem.item,
+          position: duration != null && position > duration ? duration : position,
+        );
       }
       return;
     }
@@ -414,7 +419,11 @@ class PlaybackHistoryService {
       } catch (e) {
         _playbackHistoryServiceLogger.warning(e);
         if (previousItem != null) {
-          await _offlineListenLogHelper.logOfflineListen(previousItem.item, playbackStopTime);
+          await _offlineListenLogHelper.logOfflineListen(
+            previousItem.item,
+            timestamp: playbackStopTime,
+            position: _ticksToDuration(previousTrackPlaybackData.positionTicks),
+          );
         }
       }
     }
@@ -462,11 +471,17 @@ class PlaybackHistoryService {
           }
         } catch (e) {
           _playbackHistoryServiceLogger.warning(e);
-          await _offlineListenLogHelper.logOfflineListen(currentItem.item, playbackStopTime);
+          await _offlineListenLogHelper.logOfflineListen(
+            currentItem.item,
+            timestamp: playbackStopTime,
+            position: _ticksToDuration(playbackData.positionTicks),
+          );
         }
       }
     }
   }
+
+  static Duration? _ticksToDuration(int? ticks) => ticks == null ? null : Duration(microseconds: ticks ~/ 10);
 
   /// Generates PlaybackProgressInfo for the supplied item and playback state.
   jellyfin_models.PlaybackProgressInfo? generatePlaybackProgressInfoFromState(
@@ -499,14 +514,21 @@ class PlaybackHistoryService {
         if (_lastReportedTrackStopped?.id != _currentTrack?.item.id) {
           _lastReportedTrackStopped = _currentTrack?.item;
           if (FinampSettingsHelper.finampSettings.isOffline) {
-            await _offlineListenLogHelper.logOfflineListen(_currentTrack!.item.item);
+            await _offlineListenLogHelper.logOfflineListen(
+              _currentTrack!.item.item,
+              position: _ticksToDuration(playbackInfo.positionTicks),
+            );
           } else {
             await _jellyfinApiHelper.stopPlaybackProgress(playbackInfo);
           }
         }
       } catch (e) {
         _playbackHistoryServiceLogger.warning(e);
-        await _offlineListenLogHelper.logOfflineListen(_currentTrack!.item.item, playbackStopTime);
+        await _offlineListenLogHelper.logOfflineListen(
+          _currentTrack!.item.item,
+          timestamp: playbackStopTime,
+          position: _ticksToDuration(playbackInfo.positionTicks),
+        );
       }
       await DiscordRpc.updateRPC();
     }
