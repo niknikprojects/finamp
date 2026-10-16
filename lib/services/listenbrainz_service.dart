@@ -147,10 +147,18 @@ class ListenBrainzService {
             return !counts(listen) || (_artistName(listen)?.isEmpty ?? true);
           })
           .toList();
+      for (final key in droppedKeys) {
+        final listen = _queue.get(key)!;
+        _logger.info(
+          "Not sending ${listen.name}: played ${listen.playedSeconds}s of ${listen.durationSeconds}s, "
+          "artist '${_artistName(listen)}'",
+        );
+      }
       await _queue.deleteAll(droppedKeys);
       var dropped = droppedKeys.length;
 
       final keys = _queue.keys.toList();
+      _logger.info("Submitting ${keys.length} listens to ListenBrainz, dropped ${droppedKeys.length}");
       if (keys.isEmpty) {
         return ListenBrainzSubmitResult(ListenBrainzSubmitStatus.nothingToSend, dropped: dropped);
       }

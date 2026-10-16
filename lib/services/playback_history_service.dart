@@ -43,6 +43,13 @@ class PlaybackHistoryService {
 
   Timer? _periodicUpdateTimer;
 
+  // finampBrainz: wall-clock time each queue item has actually been playing, for offline listens.
+  // The player position is unreliable once a track has stopped (it is often already reset to zero).
+  String? _playTimeItemId;
+  Duration _playTimeAccumulated = Duration.zero;
+  DateTime? _playingSince;
+  ({String id, Duration played})? _previousPlayTime;
+
   // config
   final int _maxQueueLengthToReport = 100;
 
@@ -53,6 +60,8 @@ class PlaybackHistoryService {
         _updatePlaybackInfo();
       }
     });
+
+    _audioService.playbackState.listen(_trackPlayTime);
 
     bool throttleRemoteSessionReporting = false;
 
@@ -382,7 +391,7 @@ class PlaybackHistoryService {
         final position = previousState.position;
         await _offlineListenLogHelper.logOfflineListen(
           previousItem.item,
-          position: duration != null && position > duration ? duration : position,
+          position: _listenedFor(previousItem, duration != null && position > duration ? duration : position),
         );
       }
       return;
@@ -422,7 +431,7 @@ class PlaybackHistoryService {
           await _offlineListenLogHelper.logOfflineListen(
             previousItem.item,
             timestamp: playbackStopTime,
-            position: _ticksToDuration(previousTrackPlaybackData.positionTicks),
+            position: _listenedFor(previousItem, _ticksToDuration(previousTrackPlaybackData.positionTicks)),
           );
         }
       }
@@ -474,11 +483,54 @@ class PlaybackHistoryService {
           await _offlineListenLogHelper.logOfflineListen(
             currentItem.item,
             timestamp: playbackStopTime,
-            position: _ticksToDuration(playbackData.positionTicks),
+            position: _listenedFor(currentItem, _ticksToDuration(playbackData.positionTicks)),
           );
         }
       }
     }
+  }
+
+  void _trackPlayTime(PlaybackState state) {
+    final now = DateTime.now();
+    final index = state.queueIndex;
+    final sequence = _audioService.sequenceState.effectiveSequence;
+    final tag = index != null && index >= 0 && index < sequence.length ? sequence[index].tag : null;
+    final itemId = tag is FinampQueueItem ? tag.id : null;
+
+    if (itemId != _playTimeItemId) {
+      if (_playTimeItemId != null) {
+        _previousPlayTime = (id: _playTimeItemId!, played: _currentPlayTime(now));
+      }
+      _playTimeItemId = itemId;
+      _playTimeAccumulated = Duration.zero;
+      _playingSince = null;
+    }
+
+    final playing = state.playing && state.processingState == AudioProcessingState.ready;
+    if (playing && _playingSince == null) {
+      _playingSince = now;
+    } else if (!playing && _playingSince != null) {
+      _playTimeAccumulated += now.difference(_playingSince!);
+      _playingSince = null;
+    }
+  }
+
+  Duration _currentPlayTime(DateTime now) =>
+      _playTimeAccumulated + (_playingSince == null ? Duration.zero : now.difference(_playingSince!));
+
+  /// How long [item] has been playing, or null if it isn't the current or the previous track.
+  Duration? _playTimeFor(FinampQueueItem item) {
+    if (item.id == _playTimeItemId) return _currentPlayTime(DateTime.now());
+    if (item.id == _previousPlayTime?.id) return _previousPlayTime!.played;
+    return null;
+  }
+
+  /// The longer of the measured play time and the reported position, so a measuring gap never loses a listen.
+  Duration? _listenedFor(FinampQueueItem item, Duration? position) {
+    final played = _playTimeFor(item);
+    if (played == null) return position;
+    if (position == null) return played;
+    return played > position ? played : position;
   }
 
   static Duration? _ticksToDuration(int? ticks) => ticks == null ? null : Duration(microseconds: ticks ~/ 10);
@@ -516,7 +568,7 @@ class PlaybackHistoryService {
           if (FinampSettingsHelper.finampSettings.isOffline) {
             await _offlineListenLogHelper.logOfflineListen(
               _currentTrack!.item.item,
-              position: _ticksToDuration(playbackInfo.positionTicks),
+              position: _listenedFor(_currentTrack!.item, _ticksToDuration(playbackInfo.positionTicks)),
             );
           } else {
             await _jellyfinApiHelper.stopPlaybackProgress(playbackInfo);
@@ -527,7 +579,7 @@ class PlaybackHistoryService {
         await _offlineListenLogHelper.logOfflineListen(
           _currentTrack!.item.item,
           timestamp: playbackStopTime,
-          position: _ticksToDuration(playbackInfo.positionTicks),
+          position: _listenedFor(_currentTrack!.item, _ticksToDuration(playbackInfo.positionTicks)),
         );
       }
       await DiscordRpc.updateRPC();
