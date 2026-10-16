@@ -66,8 +66,11 @@ jobs:
     - run: flutter pub get
     - run: flutter build apk --release
 
+    # Name the APK after the build so versions are told apart on the phone
+    - run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/finamp-listenbrainz-${{ github.run_number }}.apk
+
     - uses: actions/upload-artifact@v6
       with:
         name: finamp-listenbrainz-${{ github.run_number }}
-        path: build/app/outputs/flutter-apk/app-release.apk
+        path: build/app/outputs/flutter-apk/finamp-listenbrainz-${{ github.run_number }}.apk
         compression-level: 0
