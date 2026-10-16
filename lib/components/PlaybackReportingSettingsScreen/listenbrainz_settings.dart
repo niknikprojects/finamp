@@ -29,20 +29,20 @@ class _ListenBrainzSettingsState extends State<ListenBrainzSettings> {
     final value = _controller.text.trim();
     if (value.isEmpty) {
       await _service.setToken(null);
-      GlobalSnackbar.message((_) => "ListenBrainz-token borttagen");
+      GlobalSnackbar.message((_) => "ListenBrainz token removed");
       return;
     }
     setState(() => _working = true);
     try {
       final userName = await _service.validateToken(value);
       if (userName == null) {
-        GlobalSnackbar.message((_) => "Ogiltig token, inte sparad");
+        GlobalSnackbar.message((_) => "Invalid token, not saved");
         return;
       }
       await _service.setToken(value);
-      GlobalSnackbar.message((_) => "Token sparad för $userName", isConfirmation: true);
+      GlobalSnackbar.message((_) => "Token saved for $userName", isConfirmation: true);
     } catch (e) {
-      GlobalSnackbar.message((_) => "Kunde inte nå ListenBrainz: $e");
+      GlobalSnackbar.message((_) => "Could not reach ListenBrainz: $e");
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -52,15 +52,15 @@ class _ListenBrainzSettingsState extends State<ListenBrainzSettings> {
     setState(() => _working = true);
     try {
       final result = await _service.submitQueue();
-      final dropped = result.dropped > 0 ? ", ${result.dropped} för korta borttagna" : "";
+      final dropped = result.dropped > 0 ? ", ${result.dropped} too short, removed" : "";
       final text = switch (result.status) {
-        ListenBrainzSubmitStatus.ok => "Skickade ${result.submitted} lyssningar$dropped",
-        ListenBrainzSubmitStatus.nothingToSend => "Inget att skicka$dropped",
-        ListenBrainzSubmitStatus.noToken => "Ange en token först",
-        ListenBrainzSubmitStatus.invalidToken => "ListenBrainz godkänner inte token",
-        ListenBrainzSubmitStatus.rateLimited => "För många anrop, försöker igen senare",
-        ListenBrainzSubmitStatus.busy => "Skickar redan",
-        ListenBrainzSubmitStatus.failed => "Misslyckades (${result.message}), försöker igen senare",
+        ListenBrainzSubmitStatus.ok => "Submitted ${result.submitted} listens$dropped",
+        ListenBrainzSubmitStatus.nothingToSend => "Nothing to submit$dropped",
+        ListenBrainzSubmitStatus.noToken => "Enter a token first",
+        ListenBrainzSubmitStatus.invalidToken => "ListenBrainz rejected the token",
+        ListenBrainzSubmitStatus.rateLimited => "Rate limited, will retry later",
+        ListenBrainzSubmitStatus.busy => "Already submitting",
+        ListenBrainzSubmitStatus.failed => "Failed (${result.message}), will retry later",
       };
       GlobalSnackbar.message((_) => text);
     } finally {
@@ -76,9 +76,9 @@ class _ListenBrainzSettingsState extends State<ListenBrainzSettings> {
         const ListTile(
           title: Text("ListenBrainz"),
           subtitle: Text(
-            "Lyssningar som Jellyfin inte fick (offline eller misslyckad rapport) "
-            "skickas direkt till ListenBrainz med rätt tid när nätet finns. "
-            "Token hittar du på listenbrainz.org/settings.",
+            "Listens Jellyfin never received (offline or failed report) are "
+            "submitted directly to ListenBrainz with the correct time once online. "
+            "Find your token at listenbrainz.org/settings.",
           ),
         ),
         Padding(
@@ -103,8 +103,8 @@ class _ListenBrainzSettingsState extends State<ListenBrainzSettings> {
           builder: (context, box, _) {
             final countable = box.values.where(ListenBrainzService.counts).length;
             return ListTile(
-              title: Text("$countable lyssningar i kö"),
-              subtitle: box.length > countable ? Text("${box.length - countable} för korta, skickas inte") : null,
+              title: Text("$countable listens queued"),
+              subtitle: box.length > countable ? Text("${box.length - countable} too short, won't be submitted") : null,
             );
           },
         ),
@@ -113,8 +113,8 @@ class _ListenBrainzSettingsState extends State<ListenBrainzSettings> {
           child: Wrap(
             spacing: 8,
             children: [
-              FilledButton(onPressed: _working ? null : _saveToken, child: const Text("Spara och testa")),
-              OutlinedButton(onPressed: _working ? null : _submitNow, child: const Text("Skicka nu")),
+              FilledButton(onPressed: _working ? null : _saveToken, child: const Text("Save and test")),
+              OutlinedButton(onPressed: _working ? null : _submitNow, child: const Text("Submit now")),
             ],
           ),
         ),
