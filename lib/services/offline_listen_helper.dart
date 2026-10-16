@@ -36,8 +36,18 @@ class OfflineListenLogHelper {
   /// This is used when the user is offline or submitting live playback events fails.
   /// [position] is the playback position when the track stopped.
   Future<void> logOfflineListen(MediaItem item, {DateTime? timestamp, Duration? position}) async {
+    // Callers don't await this, so an exception here would silently lose the listen.
+    try {
+      await _logOfflineListenFromItem(item, timestamp: timestamp, position: position);
+    } catch (e, stackTrace) {
+      _logger.severe("Failed to store offline listen for ${item.title}", e, stackTrace);
+    }
+  }
+
+  Future<void> _logOfflineListenFromItem(MediaItem item, {DateTime? timestamp, Duration? position}) async {
     final itemJson = item.extras!["itemJson"];
-    final providerIds = itemJson["ProviderIds"] as Map<String, dynamic>?;
+    // itemJson maps are not always Map<String, dynamic>, so read them dynamically
+    final dynamic providerIds = itemJson["ProviderIds"];
     final runTimeTicks = itemJson["RunTimeTicks"] as num?;
 
     final deviceInfo = await getDeviceInfo(deviceId: FinampSettingsHelper.finampSettings.deviceId);
@@ -53,13 +63,14 @@ class OfflineListenLogHelper {
       deviceInfo: deviceInfo,
       playedSeconds: position?.inSeconds,
       durationSeconds: runTimeTicks == null ? item.duration?.inSeconds : runTimeTicks ~/ 10000000,
-      artists: (itemJson["Artists"] as List?)?.cast<String>(),
+      artists: (itemJson["Artists"] as List?)?.whereType<String>().toList(),
       recordingMbid: providerIds?["MusicBrainzRecording"] as String?,
       releaseMbid: providerIds?["MusicBrainzAlbum"] as String?,
       releaseGroupMbid: providerIds?["MusicBrainzReleaseGroup"] as String?,
       artistMbids: _splitMbids(providerIds?["MusicBrainzArtist"] as String?),
     );
 
+    _logger.info("Offline listen ${item.title}: played ${position?.inSeconds}s of ${offlineListen.durationSeconds}s");
     return _logOfflineListen(offlineListen);
   }
 
