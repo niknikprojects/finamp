@@ -1,3 +1,9 @@
+> [!NOTE]
+> **Personal fork.** This is upstream Finamp with one addition: listens played while offline are
+> submitted to [ListenBrainz](https://listenbrainz.org) (Settings → Playback reporting → ListenBrainz).
+> The changes live on the `listenbrainz` branch; `redesign` mirrors upstream. Not affiliated with
+> the Finamp project — get the official app from the links below.
+
 ![Several screenshots of Finamp, featuring various screens in the app on desktop, Android, and iOS](<images/GitHub_Banner.png>)
 
 <div align="center">

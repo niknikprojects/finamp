@@ -1,0 +1,73 @@
+name: Build ListenBrainz release APK
+
+# Signed release APK of the listenbrainz branch. Upstream's build.yml only
+# builds debug APKs and only runs on main/redesign, so it stays untouched.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - listenbrainz
+
+jobs:
+  build-android-release:
+    name: Build signed Android APK
+    runs-on: ubuntu-latest
+    steps:
+    - name: Free up disk space
+      run: |
+        sudo rm -rf /usr/share/dotnet /usr/share/swift /usr/local/.ghcup /usr/local/julia* \
+          /usr/local/share/powershell /usr/local/share/chromium /opt/ghc /opt/hostedtoolcache/CodeQL
+        df -h /
+
+    - name: Clone repository
+      uses: actions/checkout@v6
+
+    - uses: actions/setup-java@v5
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        cache: true
+
+    - name: Gradle cache
+      uses: actions/cache@v5
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: ${{ runner.os }}-gradle-
+
+    # The keystore lives in repo secrets so every build has the same signature
+    # and installs over the previous one.
+    - name: Set up signing
+      env:
+        KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      run: |
+        if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+          echo "::error::Secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD must be set"
+          exit 1
+        fi
+        echo "$KEYSTORE_BASE64" | base64 -d > android/release.p12
+        cat > android/key.properties <<PROPS
+        storeFile=../release.p12
+        storePassword=$KEYSTORE_PASSWORD
+        keyAlias=${KEY_ALIAS:-finampbrainz}
+        keyPassword=$KEYSTORE_PASSWORD
+        PROPS
+
+    # flutter build does not always generate localizations, so run pub get first
+    - run: flutter pub get
+    - run: flutter build apk --release
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: finamp-listenbrainz-${{ github.run_number }}
+        path: build/app/outputs/flutter-apk/app-release.apk
+        compression-level: 0
