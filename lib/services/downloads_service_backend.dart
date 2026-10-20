@@ -649,13 +649,15 @@ class DownloadsDeleteService {
 
     if (item.file != null && item.fileDownloadLocation!.useHumanReadableNames) {
       Directory trackDirectory = item.file!.parent;
+      // A non-recursive delete only succeeds on an empty directory, so skip listing it:
+      // scoped storage can refuse the listing (errno 1) even for directories we created.
       try {
-        if (await trackDirectory.list().isEmpty) {
-          _deleteLogger.info("${trackDirectory.path} is empty, deleting");
-          await trackDirectory.delete();
-        }
+        await trackDirectory.delete();
+        _deleteLogger.info("${trackDirectory.path} was empty, deleted");
       } on PathNotFoundException {
         _deleteLogger.info("Directory ${trackDirectory.path} missing during delete.");
+      } on FileSystemException catch (e) {
+        _deleteLogger.fine("Kept directory ${trackDirectory.path}: ${e.osError?.message ?? e.message}");
       }
     }
 
